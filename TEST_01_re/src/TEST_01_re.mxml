@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.graphics.codec.PNGEncoder;
+			public static function scaleImage(originalImage:BitmapData, size:int):BitmapData
+			{
+				// Calculate the scaled size.
+				var scale:Number;
+				var scaledWidth:Number;
+				var scaledHeight:Number;
+				
+				if (originalImage.width > originalImage.height)
+				{
+					scale = (size as Number) / (originalImage.width as Number);
+					scaledWidth = size;
+					scaledHeight = originalImage.height * scale;
+				}
+				else
+				{
+					scale = (size as Number) / (originalImage.height as Number);
+					scaledHeight = size;
+					scaledWidth = originalImage.width * scale;
+				}
+				
+				var scalingMatrix:Matrix = new Matrix();
+				scalingMatrix.scale(scale, scale);
+				
+				// Scale the image.
+				var scaledImage:BitmapData = new BitmapData(scaledWidth, scaledHeight, true, 0x00000000);
+				scaledImage.draw(originalImage, scalingMatrix, null, null, null, true);
+				
+				return scaledImage;
+			}
+			
+			public static function saveImageAsPNG(image:BitmapData, imageFile:File):void
+			{
+				// Encode the image as a PNG.
+				var pngEncoder:PNGEncoder = new PNGEncoder();
+				var imageByteArray:ByteArray = pngEncoder.encode(image);
+				
+				// Write the image data to a file.
+				var imageFileStream:FileStream = new FileStream();
+				imageFileStream.open(imageFile, FileMode.WRITE);
+				imageFileStream.writeBytes(imageByteArray);
+				imageFileStream.close();                
+			}       
+		]]>
+	</fx:Script>
+</s:WindowedApplication>

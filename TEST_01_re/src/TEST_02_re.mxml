@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<mx:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+						xmlns:s="library://ns.adobe.com/flex/spark" 
+						xmlns:mx="library://ns.adobe.com/flex/mx" layout="absolute"> 
+	<fx:Script> 
+		<![CDATA[ 
+		import mx.graphics.codec.PNGEncoder; 
+		public var imageFile:File; 
+		public var fileresultimage:Object; 
+		public var fileresultlabel:Object; 
+		// File.applicationStorageDirectory gets you to the local storage dir 
+		//On Windows, this is the "projectname" directory 
+		//(for example, C:\Documents and Settings\application data\projectname). 
+		// On Mac OS, it is /Users/userName/Documents. 
+		public var docsDir:File = File.applicationStorageDirectory; 
+		
+		public function imageFileDialog(image:Object,label:Object):void 
+		{ 
+		
+			fileresultimage=image; 
+			fileresultlabel=label; 
+			var imagesFilter:FileFilter = 
+			new FileFilter("Foto (*.jpg, *.gif, *.png)", "*.jpg;*.gif;*.png"); 
+			if(imageFile==null) 
+			{ 
+				imageFile = new File(); 
+			} 
+			imageFile.addEventListener(Event.SELECT, imageSelected); 
+			imageFile.browseForOpen("Select an Image",[imagesFilter]); 
+		} 
+		// if there is a file selected 
+		public function imageSelected(event:Event):void 
+		{ 
+			var newFile:File = event.target as File; 
+			
+			//if there is a file object on the screen 
+			if(fileresultimage!=null) 
+			fileresultimage.source=imageFile.url; 
+			
+			//if there is a label object on the screen 
+			if(fileresultlabel!=null) 
+			fileresultlabel.text=imageFile.url; 
+			
+			if (newFile.exists==true) 
+			{ 
+				var loader:Loader = new Loader(); 
+				loader.contentLoaderInfo.addEventListener(Event.COMPLETE, handleImageComplete); 
+				loader.load(new URLRequest(imageFile.url)); 
+			} 
+		} 
+		
+		// when load of the selected image is complete we save a smaller version of it. 
+		public function handleImageComplete(event:Event):void 
+		{ 
+		
+			var loader:Loader = Loader(event.target.loader); 
+			// width and heigt of selected image 
+			var originalimgwidth:Number=event.target.width; 
+			var originalimgheight:Number=event.target.height; 
+			
+			//put original image into bitmapdata 
+			var bitmapje:BitmapData; 
+			bitmapje=new BitmapData(originalimgwidth, originalimgheight, true, 0x00000000); 
+			//bitmapje.draw(loaderInfo.loader.content,null,null,null,null,true);/ /null object reference 
+			bitmapje.draw(loader.content,null,null,null,null,true); 
+			// call the resize function and give the original image,maxx,and maxy with it. 
+			var thumb:BitmapData=resizeimage(bitmapje,150,150); 
+			
+			var newimagefile:File=new File(); 
+			// T = Thumbnail 
+			// 1 = next id in the db 
+			// for now we use a random number 
+			var random:Number= Math.random(); 
+			random = Math.ceil(random*100);// to get a positive number 
+			
+			var filenameForSave:String="T"+random; //new filename; 
+			newimagefile=docsDir.resolvePath("Thumbs/" + filenameForSave + ".png"); //image path 
+			
+			trace(newimagefile.nativePath);
+			
+			var stream:FileStream = new FileStream; // create new filestream 
+			stream.open(newimagefile, FileMode.WRITE); // open filestream 
+			var data:ByteArray = encodeToPng(thumb); // convert bitmapdata to a png bytearry 
+			stream.writeBytes(data, 0, data.length); // writing the image 
+			stream.close(); 
+			// show the saved thumb 
+			savedthumb.source=newimagefile.nativePath; 
+			bitmapje=null; 
+			thumb=null; 
+		
+		} 
+		// resize function 
+		private function resizeimage(image:BitmapData,maxx:Number,maxy:Number):BitmapData 
+		{ 
+			var bmp:BitmapData =image; 
+			var true_width:Number = bmp.width; 
+			var true_height:Number = bmp.height; 
+			var resize:Boolean=false; 
+			
+			if (true_width>maxx) resize=true; 
+			if (true_height>maxy) resize=true; 
+			if (resize==true) 
+			{ 
+				var width:Number=maxx; 
+				var height:Number = (width / true_width) * true_height; 
+				true_width=width; 
+				true_height=height; 
+				
+				if (true_height>maxy) 
+				{ 
+					height=maxy; 
+					width = (height/true_height)*true_width; 
+				} 
+				else 
+				{ 
+					width=true_width; 
+					height=true_height; 
+				} 
+			} 
+			else 
+			{ 
+				width=true_width; 
+				height=true_height; 
+			} 
+			//new calculated width and heigt relative to the given maxx and maxy. 
+			width=Math.ceil(width); 
+			height=Math.ceil(height); 
+			
+			
+			//create a new image object with the calculated widht and height for the smaller image 
+			var mysmallimage:Image=new Image(); 
+			mysmallimage.width=width; 
+			mysmallimage.height=height; 
+			
+			//new matrix for smaller image 
+			var m : Matrix = new Matrix() ; 
+			//scale the matrix to the correct sizes. 
+			m.scale( mysmallimage.width / bmp.width, mysmallimage.height / bmp.height ) ; 
+			//draw the image into the image object 
+			mysmallimage.graphics.beginBitmapFill( bmp, m, false, true ) ; 
+			mysmallimage.graphics.drawRect( 0, 0, mysmallimage.width, mysmallimage.height ) ; 
+			mysmallimage.graphics.endFill(); 
+			
+			//put the smaller image into bitmapdata so it can be returned. 
+			var littlebitmapdata:BitmapData=new BitmapData(mysmallimage.width,mysmallimage.height,true,0x00000000); 
+			littlebitmapdata.draw(mysmallimage); 
+			
+			// set the temporary small image to null so the GC can remove it from the memmory. 
+			mysmallimage=null; 
+			bmp=null; 
+			
+			//returning the small image. 
+			return littlebitmapdata; 
+		} 
+		
+		// encoder to png 
+		private function encodeToPng(bmd:BitmapData):ByteArray 
+		{ 
+			var png:PNGEncoder= new PNGEncoder(); 
+			return png.encode(bmd); 
+		} 
+			
+		private var directory:String = "SimpleSaveFromAIR";
+		
+		private function saveImage(obj:Image,imgWidth:uint,imgHeight:uint):void {
+			var bmp:BitmapData  =   new BitmapData(imgWidth,imgHeight,false,0)
+				
+			bmp.draw(obj);
+			//
+			var je:PNGEncoder        =  new PNGEncoder();
+			var b:ByteArray     =   je.encode(bmp);
+			var saveFileName:String        =   String( new Date().milliseconds )  + ".png";
+//			var cropFile:File   =   appDir.resolvePath(saveFileName);
+			var cropFile:File   =   File.documentsDirectory.resolvePath(directory + "\\" + saveFileName);
+//			var cropFile:File   =   File.documentsDirectory.resolvePath(saveFileName);
+			trace(saveFileName);
+			trace(cropFile.toString());
+			
+			var stream:FileStream          =   new FileStream();
+			stream.open(cropFile, FileMode.WRITE);                         
+			
+			stream.writeBytes(b,0,b.bytesAvailable);
+			stream.close();
+			bmp.dispose();
+		}
+
+		]]> 
+	</fx:Script> 
+	<!--<mx:Image id="tempimage" x="404" y="36" complete="temploadcomplete()"/>--> 
+	<mx:Image id="myimg" x="10" y="55" width="314" height="227" verticalAlign="middle" horizontalAlign="center"/> 
+	<mx:TextInput id="imageurl" x="53" y="303" width="160" maxWidth="160"/> 
+	<mx:Button x="221" y="303" label="Bladeren" click="imageFileDialog(myimg,imageurl)"/> 
+	<mx:Button x="321" y="303" label="save1" click="saveImage(myimg,myimg.width,myimg.height)"/> 
+	<mx:Button x="421" y="303" label="save2" click="saveImage(savedthumb,savedthumb.width,savedthumb.height)"/> 
+	<mx:Image x="346" y="55" id="savedthumb"/> 
+	<mx:Text x="23" y="0" text="Original image with limit width and height to show it on the screen." height="47" width="177"/> 
+	<mx:Text x="346" y="0" text="Local stored thumbnail"/> 
+</mx:WindowedApplication> 
